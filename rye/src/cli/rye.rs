@@ -848,8 +848,22 @@ pub fn auto_self_install() -> Result<bool, Error> {
         {
             crate::request_continue_prompt();
         }
+        let config = Config::current();
 
-        perform_install(InstallMode::AutoInstall, None, None, YesNoArg::Yes)?;
+        let toolchain_version = match config.default_toolchain() {
+            Ok(version) => Some(version),
+            Err(e) => {
+                // 在这里处理错误，例如记录日志或返回一个默认值
+                eprintln!("Failed to get default toolchain: {}", e);
+                None
+            }
+        };
+        perform_install(
+            InstallMode::AutoInstall,
+            None,
+            toolchain_version,
+          YesNoArg::Yes
+        )?;
         Ok(true)
     }
 }

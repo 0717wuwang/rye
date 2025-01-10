@@ -2,14 +2,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use anyhow::{Context, Error};
+use anyhow::{Context, Error, Ok};
 use once_cell::sync::Lazy;
 use pep440_rs::Operator;
 use regex::Regex;
 use toml_edit::DocumentMut;
 
 use crate::platform::{get_app_dir, get_latest_cpython_version};
-use crate::pyproject::{BuildSystem, SourceRef, SourceRefType};
+use crate::pyproject::{BuildSystem, GithubMapping, SourceRef, SourceRefType};
 use crate::sources::py::PythonVersionRequest;
 use crate::utils::{toml, IoPathContext};
 
@@ -19,7 +19,7 @@ static AUTHOR_REGEX: Lazy<Regex> =
 
 pub fn load() -> Result<(), Error> {
     let cfg_path = get_app_dir().join("config.toml");
-    let cfg = if cfg_path.is_file() {
+    let cfg: Config = if cfg_path.is_file() {
         Config::from_path(&cfg_path)?
     } else {
         Config {
@@ -223,6 +223,20 @@ impl Config {
                     .and_then(|x| x.as_str())
                     .map(|x| x.to_string())
             })
+    }
+
+    pub fn github_mapping(&self) -> Result<Vec<GithubMapping>,Error> { 
+        let mut rv = Vec::new();
+        if let Some(mappings) = self.doc.get("github_mapping")
+        .or_else(|| self.doc.get("github-mapping"))
+        .map(|x| toml::iter_tables(x)) {
+            for mapping in mappings {
+                let github_mapping = mapping.map(GithubMapping::from_toml_table)
+                .unwrap_or_else(|_| GithubMapping::default());
+                rv.push(github_mapping);
+            }
+        }
+        Ok(rv)
     }
 
     /// Returns the list of default sources.

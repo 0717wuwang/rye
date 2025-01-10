@@ -125,6 +125,47 @@ impl fmt::Display for SourceRefType {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct GithubMapping {
+    pub source_url: Option<String>,
+    pub target_url: Option<String>,
+}
+
+impl GithubMapping {
+    pub fn from_toml_table(github_mapping:&dyn TableLike) -> GithubMapping {
+        let source_url = github_mapping
+        .get("source_url")
+        .and_then(|x| x.as_str())
+        .map(|x| x.to_string());
+        
+        let target_url = github_mapping
+        .get("target_url")
+        .and_then(|x| x.as_str())
+        .map(|x| x.to_string());
+        
+        GithubMapping {
+            source_url,
+            target_url,
+        }
+    }
+
+    pub fn default()->GithubMapping{
+        GithubMapping {
+            source_url: None,
+            target_url: None,
+        }
+    }
+
+    pub fn mapping(&self) -> bool {
+        self.valid_string_option(self.source_url.clone()) && self.valid_string_option(self.target_url.clone())
+    }
+
+    fn valid_string_option(&self,option_str:Option<String>)->bool {
+        matches!(option_str, Some(info) if !info.is_empty())
+    }
+
+}
+
 /// Represents a source.
 pub struct SourceRef {
     pub name: String,

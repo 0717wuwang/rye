@@ -519,9 +519,23 @@ pub fn download_url_ignore_404(url: &str, output: CommandOutput) -> Result<Optio
     }
 
     let config = Config::current();
+    let mut download_url = url.to_string();
+    if let Ok(github_mapping) = config.github_mapping() {
+        for github_mapping in github_mapping.iter() {
+            if github_mapping.mapping() {
+                if let (Some(source_url),Some(target_url)) = (github_mapping.source_url.as_deref(),github_mapping.target_url.as_deref()) {
+                    if download_url.starts_with(source_url) {
+                        download_url = download_url.replace(source_url,target_url);
+                    }
+                }
+            }
+        }
+        
+    }
+    
     let mut archive_buffer = Vec::new();
     let mut handle = curl::easy::Easy::new();
-    handle.url(url)?;
+    handle.url(download_url.as_str())?;
     handle.progress(true)?;
     handle.follow_location(true)?;
 
@@ -530,6 +544,7 @@ pub fn download_url_ignore_404(url: &str, output: CommandOutput) -> Result<Optio
         handle.proxy(&proxy)?;
     }
 
+    echo!("url=>{}\ndownload_url=>{}",url,download_url);
     // on windows we want to disable revocation checks.  The reason is that MITM proxies
     // will otherwise not work.  This is a schannel specific behavior anyways.
     // for more information see https://github.com/curl/curl/issues/264
@@ -571,7 +586,7 @@ pub fn download_url_ignore_404(url: &str, output: CommandOutput) -> Result<Optio
         })?;
         transfer
             .perform()
-            .with_context(|| format!("download of {} failed", &url))?;
+            .with_context(|| format!("download of {} failed", &download_url))?;
     }
     let code = handle.response_code()?;
     if code == 404 {
